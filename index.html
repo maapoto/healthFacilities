@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health Facilities Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        #map { height: 100vh; width: 100vw; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        // Define color and icon for each SubCateg1
+        const subCategStyles = {
+            'Klinika': { color: 'blue', icon: 'hospital' },
+            'Postu Saúde': { color: 'green', icon: 'plus' },
+            'Sentru Saúde': { color: 'red', icon: 'star' },
+            'default': { color: 'gray', icon: 'circle' }
+        };
+
+        // Create the map
+        const map = L.map('map').setView([-8.75, 125.6], 11);
+
+        // Add OSM basemap
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Load GeoJSON overlay
+        fetch('data/healthFacilities.geojson')
+            .then(response => response.json())
+            .then(data => {
+                L.geoJSON(data, {
+                    pointToLayer: function(feature, latlng) {
+                        const subCateg = feature.properties.SubCateg1 || 'default';
+                        const style = subCategStyles[subCateg] || subCategStyles['default'];
+                        return L.circleMarker(latlng, {
+                            radius: 8,
+                            fillColor: style.color,
+                            color: '#222',
+                            weight: 1,
+                            opacity: 1,
+                            fillOpacity: 0.8
+                        });
+                    },
+                    onEachFeature: function(feature, layer) {
+                        let popupContent = `<b>${feature.properties.Naran}</b><br>`;
+                        popupContent += `Aldeia: ${feature.properties.Aldeia || ''}<br>`;
+                        popupContent += `Suco: ${feature.properties.Suco || ''}<br>`;
+                        popupContent += `Posto Admin: ${feature.properties.Post_Admin || ''}<br>`;
+                        popupContent += `Município: ${feature.properties.Municipio || ''}<br>`;
+                        popupContent += `Categoria: ${feature.properties.Categoria || ''}<br>`;
+                        popupContent += `SubCateg1: ${feature.properties.SubCateg1 || ''}<br>`;
+                        if (feature.properties.Photo) {
+                            popupContent += `<img src="${feature.properties.Photo}" alt="Photo" style="width:100px;">`;
+                        }
+                        layer.bindPopup(popupContent);
+                    }
+                }).addTo(map);
+            });
+
+        // Add legend
+        const legend = L.control({position: 'bottomright'});
+        legend.onAdd = function (map) {
+            const div = L.DomUtil.create('div', 'info legend');
+            const categories = Object.keys(subCategStyles);
+            let labels = [];
+            for (let key of categories) {
+                if (key === 'default') continue;
+                const style = subCategStyles[key];
+                labels.push(
+                    `<i style="background:${style.color};width:12px;height:12px;display:inline-block;border-radius:50%;margin-right:5px;"></i> ${key}`
+                );
+            }
+            div.innerHTML = labels.join('<br>');
+            return div;
+        };
+        legend.addTo(map);
+    </script>
+</body>
+</html>
