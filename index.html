@@ -15,10 +15,13 @@
     <script>
         // Define color and icon for each SubCateg1
         const subCategStyles = {
-            'Klinika': { color: 'blue', icon: 'hospital' },
-            'Postu Saúde': { color: 'green', icon: 'plus' },
-            'Sentru Saúde': { color: 'red', icon: 'star' },
-            'default': { color: 'gray', icon: 'circle' }
+            'Hospital': { color: 'blue', icon: 'star', radius: 8 },
+            'Postu Saúde': { color: '#00BFFF', icon: 'plus', radius: 5 },
+            'Sentru Saúde': { color: '#00ff00', icon: 'star', radius: 4 },
+            'Klinika': { color: '#B9FFC6', icon: 'hospital', radius: 4 },
+            'Farmasia': { color: '#B9FFC6', icon: 'hospital', radius: 4 },
+            'Apotek': { color: '#B9FFC6', icon: 'hospital', radius: 4 },
+            'default': { color: 'gray', icon: 'circle', radius: 3 }
         };
 
         // Create the map
@@ -39,7 +42,7 @@
                         const subCateg = feature.properties.SubCateg1 || 'default';
                         const style = subCategStyles[subCateg] || subCategStyles['default'];
                         return L.circleMarker(latlng, {
-                            radius: 8,
+                            radius: style.radius,
                             fillColor: style.color,
                             color: '#222',
                             weight: 1,
