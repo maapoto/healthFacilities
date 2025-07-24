@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -15,14 +16,22 @@
     <script>
         // Define color and icon for each SubCateg1
         const subCategStyles = {
-            'Hospital': { color: 'blue', icon: 'star', radius: 8 },
-            'Postu Saúde': { color: '#00BFFF', icon: 'plus', radius: 5 },
-            'Sentru Saúde': { color: '#00ff00', icon: 'star', radius: 6 },
+            'Hospital': { color: 'blue', icon: 'hospital', radius: 8 },
+            'Postu Saúde': { color: '#00BFFF', icon: 'star', radius: 5 },
+            'Sentru Saúde': { color: '#00ff00', icon: 'centru', radius: 6 },
             'Klinika': { color: '#B9FFC6', icon: 'hospital', radius: 4 },
-            'Farmasia': { color: '#B9FFC6', icon: 'hospital', radius: 4 },
-            'Apotek': { color: '#B9FFC6', icon: 'hospital', radius: 4 },
+            'Farmasia': { color: '#B9FFC6', icon: 'farmasia', radius: 4 },
+            'Apotek': { color: '#B9FFC6', icon: 'apotek', radius: 4 },
             'default': { color: 'gray', icon: 'circle', radius: 3 }
         };
+
+        // Define custom icon for Hospital (must be after Leaflet is loaded)
+        const hospitalIcon = L.icon({
+            iconUrl: 'data/hospital.png',
+            iconSize: [12, 12],
+            iconAnchor: [0, 0],
+            popupAnchor: [0, -10]
+        });
 
         // Create the map
         const map = L.map('map').setView([-8.75, 125.6], 11);
@@ -31,13 +40,13 @@
         const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
+        })
 
         // Add OSM basemap
         const googleSat = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
             maxZoom: 19,
             attribution: 'google satellite'
-        })
+        }).addTo(map);
 
         // Optionally, add another basemap (e.g., OSM Hot)
         const osmHot = L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
@@ -46,22 +55,41 @@
         });
 
         // Load GeoJSON overlay
-        let healthLayer;
+        let mainLayer, zoomedLayer;
         fetch('data/healthFacilities.geojson')
             .then(response => response.json())
             .then(data => {
-                healthLayer = L.geoJSON(data, {
+                // Categories to show only at high zoom
+                const zoomCategories = [
+                    'Klinika', 'Apotek', 'Farmasia', 'Sentru Saúde', 'Postu Saúde', 'Sentru Saude', 'Postu Saude'
+                ];
+                // Normalize category names for robustness
+                function isZoomCategory(cat) {
+                    if (!cat) return false;
+                    return zoomCategories.includes(cat.trim());
+                }
+
+                // Split features
+                const zoomFeatures = data.features.filter(f => isZoomCategory(f.properties.SubCateg1));
+                const mainFeatures = data.features.filter(f => !isZoomCategory(f.properties.SubCateg1));
+
+                // Layer for always-visible features
+                mainLayer = L.geoJSON({type: 'FeatureCollection', features: mainFeatures}, {
                     pointToLayer: function(feature, latlng) {
                         const subCateg = feature.properties.SubCateg1 || 'default';
                         const style = subCategStyles[subCateg] || subCategStyles['default'];
-                        return L.circleMarker(latlng, {
-                            radius: style.radius,
-                            fillColor: style.color,
-                            color: '#222',
-                            weight: 1,
-                            opacity: 1,
-                            fillOpacity: 0.8
-                        });
+                        if (subCateg === 'Hospital') {
+                            return L.marker(latlng, { icon: hospitalIcon });
+                        } else {
+                            return L.circleMarker(latlng, {
+                                radius: style.radius,
+                                fillColor: style.color,
+                                color: '#222',
+                                weight: 1,
+                                opacity: 1,
+                                fillOpacity: 0.8
+                            });
+                        }
                     },
                     onEachFeature: function(feature, layer) {
                         let popupContent = `<b>${feature.properties.Naran}</b><br>`;
@@ -72,7 +100,6 @@
                         popupContent += `Suco: ${feature.properties.Suco || ''}<br>`;
                         popupContent += `Posto Admin: ${feature.properties.Post_Admin || ''}<br>`;
                         popupContent += `Município: ${feature.properties.Municipio || ''}<br>`;
-                        
                         if (feature.properties.Photo) {
                             popupContent += `<img src="${feature.properties.Photo}" alt="Photo" style="width:100px;">`;
                         }
@@ -80,14 +107,60 @@
                     }
                 }).addTo(map);
 
-                // Add layer control after healthLayer is loaded
+                // Layer for zoom-dependent features
+                zoomedLayer = L.geoJSON({type: 'FeatureCollection', features: zoomFeatures}, {
+                    pointToLayer: function(feature, latlng) {
+                        const subCateg = feature.properties.SubCateg1 || 'default';
+                        const style = subCategStyles[subCateg] || subCategStyles['default'];
+                        if (subCateg === 'Hospital') {
+                            return L.marker(latlng, { icon: hospitalIcon });
+                        } else {
+                            return L.circleMarker(latlng, {
+                                radius: style.radius,
+                                fillColor: style.color,
+                                color: '#222',
+                                weight: 1,
+                                opacity: 1,
+                                fillOpacity: 0.8
+                            });
+                        }
+                    },
+                    onEachFeature: function(feature, layer) {
+                        let popupContent = `<b>${feature.properties.Naran}</b><br>`;
+                        popupContent += `Sub Categ1: ${feature.properties.SubCateg1 || ''}<br>`; 
+                        popupContent += `Sub Categ2: ${feature.properties.SubCateg2 || ''}<br>`; 
+                        popupContent += `Categoria: ${feature.properties.Categoria || ''}<br>`;
+                        popupContent += `Aldeia: ${feature.properties.Aldeia || ''}<br>`;
+                        popupContent += `Suco: ${feature.properties.Suco || ''}<br>`;
+                        popupContent += `Posto Admin: ${feature.properties.Post_Admin || ''}<br>`;
+                        popupContent += `Município: ${feature.properties.Municipio || ''}<br>`;
+                        if (feature.properties.Photo) {
+                            popupContent += `<img src="${feature.properties.Photo}" alt="Photo" style="width:100px;">`;
+                        }
+                        layer.bindPopup(popupContent);
+                    }
+                });
+
+                // Show/hide zoomedLayer based on zoom
+                function updateZoomedLayer() {
+                    if (map.getZoom() >= 13) {
+                        if (!map.hasLayer(zoomedLayer)) map.addLayer(zoomedLayer);
+                    } else {
+                        if (map.hasLayer(zoomedLayer)) map.removeLayer(zoomedLayer);
+                    }
+                }
+                map.on('zoomend', updateZoomedLayer);
+                updateZoomedLayer();
+
+                // Add layer control
                 const baseMaps = {
                     "OpenStreetMap": osm,
                     "OSM Humanitarian": osmHot,
-                    "Google Satellite":googleSat
+                    "Google Satellite": googleSat
                 };
                 const overlayMaps = {
-                    "Health Facilities": healthLayer
+                    "Other Facilities": mainLayer,
+                    "Klinika/Apotek/Farmasia/Sentru Saude/Postu Saude": zoomedLayer
                 };
                 L.control.layers(baseMaps, overlayMaps, {collapsed: false}).addTo(map);
             });
@@ -101,9 +174,15 @@
             for (let key of categories) {
                 if (key === 'default') continue;
                 const style = subCategStyles[key];
-                labels.push(
-                    `<i style="background:${style.color};width:12px;height:12px;display:inline-block;border-radius:50%;margin-right:5px;"></i> ${key}`
-                );
+                if (key === 'Hospital') {
+                    labels.push(
+                        `<img src="data/hospital.png" style="width:18px;height:18px;vertical-align:middle;margin-right:5px;"> ${key}`
+                    );
+                } else {
+                    labels.push(
+                        `<i style="background:${style.color};width:12px;height:12px;display:inline-block;border-radius:50%;margin-right:5px;"></i> ${key}`
+                    );
+                }
             }
             div.innerHTML = labels.join('<br>');
             return div;
