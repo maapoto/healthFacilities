@@ -28,16 +28,29 @@
         const map = L.map('map').setView([-8.75, 125.6], 11);
 
         // Add OSM basemap
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
 
+        // Add OSM basemap
+        const googleSat = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+            maxZoom: 19,
+            attribution: 'google satellite'
+        })
+
+        // Optionally, add another basemap (e.g., OSM Hot)
+        const osmHot = L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors, Tiles style by Humanitarian OpenStreetMap Team hosted by OpenStreetMap France'
+        });
+
         // Load GeoJSON overlay
+        let healthLayer;
         fetch('data/healthFacilities.geojson')
             .then(response => response.json())
             .then(data => {
-                L.geoJSON(data, {
+                healthLayer = L.geoJSON(data, {
                     pointToLayer: function(feature, latlng) {
                         const subCateg = feature.properties.SubCateg1 || 'default';
                         const style = subCategStyles[subCateg] || subCategStyles['default'];
@@ -52,18 +65,31 @@
                     },
                     onEachFeature: function(feature, layer) {
                         let popupContent = `<b>${feature.properties.Naran}</b><br>`;
+                        popupContent += `Sub Categ1: ${feature.properties.SubCateg1 || ''}<br>`; 
+                        popupContent += `Sub Categ2: ${feature.properties.SubCateg2 || ''}<br>`; 
+                        popupContent += `Categoria: ${feature.properties.Categoria || ''}<br>`;
                         popupContent += `Aldeia: ${feature.properties.Aldeia || ''}<br>`;
                         popupContent += `Suco: ${feature.properties.Suco || ''}<br>`;
                         popupContent += `Posto Admin: ${feature.properties.Post_Admin || ''}<br>`;
                         popupContent += `Município: ${feature.properties.Municipio || ''}<br>`;
-                        popupContent += `Categoria: ${feature.properties.Categoria || ''}<br>`;
-                        popupContent += `SubCateg1: ${feature.properties.SubCateg1 || ''}<br>`;
+                        
                         if (feature.properties.Photo) {
                             popupContent += `<img src="${feature.properties.Photo}" alt="Photo" style="width:100px;">`;
                         }
                         layer.bindPopup(popupContent);
                     }
                 }).addTo(map);
+
+                // Add layer control after healthLayer is loaded
+                const baseMaps = {
+                    "OpenStreetMap": osm,
+                    "OSM Humanitarian": osmHot,
+                    "Google Satellite":googleSat
+                };
+                const overlayMaps = {
+                    "Health Facilities": healthLayer
+                };
+                L.control.layers(baseMaps, overlayMaps, {collapsed: false}).addTo(map);
             });
 
         // Add legend
